@@ -94,7 +94,7 @@ def main():
     # Define the input path (Can be a .jpg, .png, or .mp4)
     # Change this to your file name
     # input_path = "../data/test.jpg" 
-    input_path = "../../images/Cars123.png" 
+    input_path = "../../images/Cars14.png" 
     # input_path = "../data/test_video.mp4" 
     
     # Check if input is an image or video

@@ -37,6 +37,20 @@ def health_check():
     return {"status": "ok"}
 
 
+@app.get("/api/users")
+def get_users():
+    users = db.get_all_users()
+    return {"count": len(users), "users": users}
+
+
+@app.get("/api/users/{plate_number}")
+def get_user_by_plate(plate_number: str):
+    user = db.get_user_by_plate(plate_number)
+    if not user:
+        return {"found": False, "user": None}
+    return {"found": True, "user": user}
+
+
 @app.post("/api/process-image")
 async def process_image(file: UploadFile = File(...)):
     file_bytes = await file.read()
@@ -79,9 +93,11 @@ async def process_image(file: UploadFile = File(...)):
         }
 
     transaction = db.process_toll(plate_text)
+    user = db.get_user_by_plate(plate_text)
     return {
         "plate_text": plate_text,
         "status": transaction.get("status", "Error"),
         "message": transaction.get("message") or transaction.get("msg", "Unknown"),
         "updated_balance": transaction.get("updated_balance"),
+        "user": user,
     }

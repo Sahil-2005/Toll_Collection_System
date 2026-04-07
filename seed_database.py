@@ -1,6 +1,7 @@
 import glob
 import os
 import random
+import re
 import sqlite3
 
 import cv2
@@ -88,6 +89,15 @@ def extract_first_plate_text(image, detector, plate_reader):
     return ""
 
 
+def get_image_number(image_path, fallback_number):
+    """Extract numeric part from filename (e.g., Cars123.png -> 123)."""
+    base_name = os.path.basename(image_path)
+    matches = re.findall(r"\d+", base_name)
+    if matches:
+        return matches[-1]
+    return str(fallback_number)
+
+
 def seed_database():
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -126,7 +136,8 @@ def seed_database():
             print("  -> Skipped (no plate text extracted)")
             continue
 
-        owner_name = f"User_{idx}"
+        image_number = get_image_number(image_path, idx)
+        owner_name = f"user_{image_number}"
         wallet_balance = round(random.uniform(100.0, 2000.0), 2)
         is_active = True
 

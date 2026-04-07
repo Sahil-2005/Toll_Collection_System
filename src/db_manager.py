@@ -12,7 +12,7 @@ class TollDatabase:
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         
         try:
-            self.conn = sqlite3.connect(self.db_path)
+            self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
             self._create_table()
             self._inject_dummy_data()
             print(f"Connected to database successfully at {self.db_path}")
@@ -120,6 +120,117 @@ class TollDatabase:
                 "message": "DB Error",
                 "updated_balance": None,
             }
+
+    def _table_exists(self, table_name):
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name = ? LIMIT 1",
+            (table_name,),
+        )
+        return cursor.fetchone() is not None
+
+    def get_user_by_plate(self, plate_number):
+        """Fetch a normalized user payload from either registered_vehicles or legacy vehicles."""
+        try:
+            cursor = self.conn.cursor()
+
+            if self._table_exists("registered_vehicles"):
+                cursor.execute(
+                    '''
+                    SELECT plate_number, owner_name, wallet_balance, is_active
+                    FROM registered_vehicles
+                    WHERE plate_number = ?
+                    ''',
+                    (plate_number,),
+                )
+                row = cursor.fetchone()
+                if row:
+                    return {
+                        "plate_number": row[0],
+                        "owner_name": row[1],
+                        "wallet_balance": round(float(row[2]), 2),
+                        "is_active": bool(row[3]),
+                        "source_table": "registered_vehicles",
+                    }
+
+            if self._table_exists("vehicles"):
+                cursor.execute(
+                    '''
+                    SELECT plate_number, owner, balance
+                    FROM vehicles
+                    WHERE plate_number = ?
+                    ''',
+                    (plate_number,),
+                )
+                row = cursor.fetchone()
+                if row:
+                    return {
+                        "plate_number": row[0],
+                        "owner_name": row[1],
+                        "wallet_balance": round(float(row[2]), 2),
+                        "is_active": True,
+                        "source_table": "vehicles",
+                    }
+
+            return None
+        except sqlite3.Error as e:
+            print(f"Database operation error: {e}")
+            return None
+
+    def get_all_users(self):
+        """Return a normalized list of users for frontend verification."""
+        users = []
+        try:
+            cursor = self.conn.cursor()
+
+            if self._table_exists("registered_vehicles"):
+                cursor.execute(
+                    '''
+                    SELECT plate_number, owner_name, wallet_balance, is_active
+                    FROM registered_vehicles
+                    ORDER BY plate_number
+                    '''
+                )
+                rows = cursor.fetchall()
+                users.extend(
+                    {
+                        "plate_number": row[0],
+                        "owner_name": row[1],
+                        "wallet_balance": round(float(row[2]), 2),
+                        "is_active": bool(row[3]),
+                        "source_table": "registered_vehicles",
+                    }
+                    for row in rows
+                )
+
+            # Include legacy users that are not already present in registered_vehicles.
+            existing_plates = {user["plate_number"] for user in users}
+            if self._table_exists("vehicles"):
+                cursor.execute(
+                    '''
+                    SELECT plate_number, owner, balance
+                    FROM vehicles
+                    ORDER BY plate_number
+                    '''
+                )
+                rows = cursor.fetchall()
+                for row in rows:
+                    if row[0] in existing_plates:
+                        continue
+                    users.append(
+                        {
+                            "plate_number": row[0],
+                            "owner_name": row[1],
+                            "wallet_balance": round(float(row[2]), 2),
+                            "is_active": True,
+                            "source_table": "vehicles",
+                        }
+                    )
+
+            return users
+        except sqlite3.Error as e:
+            print(f"Database operation error: {e}")
+            return []
 
     def __del__(self):
         """Close the DB connection when object is destroyed."""
