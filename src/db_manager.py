@@ -1,0 +1,81 @@
+import sqlite3
+import os
+
+class TollDatabase:
+    """
+    Handles SQLite database interactions for the toll collection system.
+    """
+    def __init__(self, db_path="../database/toll_data.db"):
+        self.db_path = db_path
+        
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
+        
+        try:
+            self.conn = sqlite3.connect(self.db_path)
+            self._create_table()
+            self._inject_dummy_data()
+            print(f"Connected to database successfully at {self.db_path}")
+        except sqlite3.Error as e:
+            print(f"Database error during initialization: {e}")
+
+    def _create_table(self):
+        """Creates the vehicles table if it does not exist."""
+        query = '''
+        CREATE TABLE IF NOT EXISTS vehicles (
+            plate_number TEXT PRIMARY KEY,
+            owner TEXT NOT NULL,
+            balance REAL NOT NULL
+        )
+        '''
+        cursor = self.conn.cursor()
+        cursor.execute(query)
+        self.conn.commit()
+
+    def _inject_dummy_data(self):
+        """Injects dummy users for testing purposes."""
+        dummy_users = [
+            ("MH12AB1234", "Alice Smith", 120.0),
+            ("MH14HG5678", "Bob Johnson", 30.0), # Low balance
+            ("DL1AB9999", "Charlie Brown", 500.0)
+        ]
+        
+        cursor = self.conn.cursor()
+        for user in dummy_users:
+            cursor.execute('''
+            INSERT OR IGNORE INTO vehicles (plate_number, owner, balance)
+            VALUES (?, ?, ?)
+            ''', user)
+        self.conn.commit()
+
+    def process_toll(self, plate_number, toll_amount=50.0):
+        """
+        Queries the DB for the plate, deducts the toll if balance is sufficient.
+        Returns a dict with transaction status.
+        """
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute('SELECT balance FROM vehicles WHERE plate_number = ?', (plate_number,))
+            row = cursor.fetchone()
+            
+            if row is None:
+                return {"status": "Error", "msg": "Unregistered"}
+                
+            balance = row[0]
+            if balance >= toll_amount:
+                # Deduct balance
+                new_balance = balance - toll_amount
+                cursor.execute('UPDATE vehicles SET balance = ? WHERE plate_number = ?', (new_balance, plate_number))
+                self.conn.commit()
+                return {"status": "Success", "msg": "Paid"}
+            else:
+                return {"status": "Failed", "msg": "Low Balance"}
+                
+        except sqlite3.Error as e:
+            print(f"Database operation error: {e}")
+            return {"status": "Error", "msg": "DB Error"}
+
+    def __del__(self):
+        """Close the DB connection when object is destroyed."""
+        if hasattr(self, 'conn'):
+            self.conn.close()
