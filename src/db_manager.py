@@ -55,25 +55,71 @@ class TollDatabase:
         """
         try:
             cursor = self.conn.cursor()
-            cursor.execute('SELECT balance FROM vehicles WHERE plate_number = ?', (plate_number,))
+            # Prefer the seeded schema used by seed_database.py.
+            cursor.execute(
+                'SELECT wallet_balance, is_active FROM registered_vehicles WHERE plate_number = ?',
+                (plate_number,),
+            )
             row = cursor.fetchone()
+            table_name = "registered_vehicles"
+            balance_column = "wallet_balance"
+
+            # Backward-compatible fallback for legacy schema.
+            if row is None:
+                cursor.execute('SELECT balance FROM vehicles WHERE plate_number = ?', (plate_number,))
+                row = cursor.fetchone()
+                table_name = "vehicles"
+                balance_column = "balance"
             
             if row is None:
-                return {"status": "Error", "msg": "Unregistered"}
+                return {
+                    "status": "Error",
+                    "msg": "Unregistered",
+                    "message": "Unregistered",
+                    "updated_balance": None,
+                }
                 
             balance = row[0]
+            if table_name == "registered_vehicles":
+                is_active = bool(row[1])
+                if not is_active:
+                    return {
+                        "status": "Failed",
+                        "msg": "Inactive Tag",
+                        "message": "Inactive Tag",
+                        "updated_balance": round(balance, 2),
+                    }
+
             if balance >= toll_amount:
                 # Deduct balance
                 new_balance = balance - toll_amount
-                cursor.execute('UPDATE vehicles SET balance = ? WHERE plate_number = ?', (new_balance, plate_number))
+                cursor.execute(
+                    f'UPDATE {table_name} SET {balance_column} = ? WHERE plate_number = ?',
+                    (new_balance, plate_number),
+                )
                 self.conn.commit()
-                return {"status": "Success", "msg": "Paid"}
+                return {
+                    "status": "Success",
+                    "msg": "Paid",
+                    "message": "Paid",
+                    "updated_balance": round(new_balance, 2),
+                }
             else:
-                return {"status": "Failed", "msg": "Low Balance"}
+                return {
+                    "status": "Failed",
+                    "msg": "Low Balance",
+                    "message": "Low Balance",
+                    "updated_balance": round(balance, 2),
+                }
                 
         except sqlite3.Error as e:
             print(f"Database operation error: {e}")
-            return {"status": "Error", "msg": "DB Error"}
+            return {
+                "status": "Error",
+                "msg": "DB Error",
+                "message": "DB Error",
+                "updated_balance": None,
+            }
 
     def __del__(self):
         """Close the DB connection when object is destroyed."""
