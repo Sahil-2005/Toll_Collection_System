@@ -10,7 +10,8 @@ from src.detector import LicensePlateDetector
 from src.ocr_engine import PlateReader
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MODEL_PATH = os.path.join(BASE_DIR, "models", "best.pt")
+# MODEL_PATH = os.path.join(BASE_DIR, "models", "best.pt")
+MODEL_PATH = os.path.join(BASE_DIR, "models", "license-plate-finetune-v1s.pt")
 DB_PATH = os.path.join(BASE_DIR, "database", "toll_data.db")
 
 app = FastAPI(title="ALPR Toll API", version="1.0.0")
