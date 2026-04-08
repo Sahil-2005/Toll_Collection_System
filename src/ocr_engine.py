@@ -1,19 +1,21 @@
 import cv2
-import easyocr
 import numpy as np
 import re
+from paddleocr import PaddleOCR
 
 class PlateReader:
     """
-    Handles Optical Character Recognition (OCR) for detected license plates.
+    Handles Optical Character Recognition (OCR) for detected license plates using PaddleOCR.
     """
     def __init__(self):
         try:
-            # Initialize EasyOCR reader for English
-            self.reader = easyocr.Reader(['en'], gpu=False) # Switch to True if GPU available
-            print("EasyOCR reader initialized successfully.")
+            # Initialize PaddleOCR for English
+            # use_angle_cls handles slightly tilted plates automatically
+            # show_log=False prevents Paddle from spamming your terminal 
+            self.reader = PaddleOCR(use_angle_cls=True, lang='en')
+            print("PaddleOCR initialized successfully.")
         except Exception as e:
-            print(f"Error initializing EasyOCR: {e}")
+            print(f"Error initializing PaddleOCR: {e}")
             self.reader = None
 
     def preprocess(self, cropped_image):
@@ -27,7 +29,7 @@ class PlateReader:
             # Apply bilateral filter to reduce noise while keeping edges sharp
             bfilter = cv2.bilateralFilter(gray, 11, 17, 17)
             
-            # Apply adaptive thresholding to make text pop
+            # Apply adaptive thresholding
             thresh = cv2.adaptiveThreshold(
                 bfilter, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
                 cv2.THRESH_BINARY, 11, 2
@@ -46,23 +48,31 @@ class PlateReader:
 
     def read_text(self, cropped_image):
         """
-        Runs the OCR engine on the preprocessed image.
+        Runs the OCR engine on the raw image.
         Returns the cleaned text payload.
         """
         if self.reader is None:
             return ""
 
-        processed_img = self.preprocess(cropped_image)
         try:
-            # Do OCR
-            results = self.reader.readtext(processed_img)
+            # We skip manual preprocessing! Pass the raw cropped_image directly.
+            # PaddleOCR handles lighting, noise, and channels internally.
+            results = self.reader.ocr(cropped_image)
             
-            # Combine all detected text blocks
-            full_text = "".join([result[1] for result in results])
+            # Handle cases where nothing is detected
+            if not results or not results[0]:
+                return ""
+
+            # PaddleOCR returns a complex nested list: [ [ [box coords], ("Text", confidence_score) ] ]
+            full_text = ""
+            for line in results[0]:
+                text_segment = line[1][0]  # Grab just the text string
+                full_text += text_segment
             
             # Clean and return text
             cleaned = self.clean_text(full_text)
             return cleaned
+            
         except Exception as e:
             print(f"Error during text reading: {e}")
             return ""

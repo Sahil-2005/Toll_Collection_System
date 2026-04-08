@@ -87,14 +87,15 @@ from db_manager import TollDatabase
 
 def main():
     # Initialize the core components
-    detector = LicensePlateDetector(model_path="../models/best.pt")
+    detector = LicensePlateDetector(model_path="../models/license-plate-finetune-v1m.pt")
     ocr_engine = PlateReader()
     db_manager = TollDatabase(db_path="../database/toll_data.db")
 
     # Define the input path (Can be a .jpg, .png, or .mp4)
     # Change this to your file name
     # input_path = "../data/test.jpg" 
-    input_path = "../../images/Cars123.png" 
+    input_path = "../../images/Cars0.png" 
+    # input_path = "../../test/images/000812dcf304a8e7_jpg.rf.ba32e6c184b3d974abcced6f7c29af6d.jpg" 
     # input_path = "../data/test_video.mp4" 
     
     # Check if input is an image or video
