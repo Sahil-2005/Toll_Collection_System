@@ -11,7 +11,7 @@ from src.ocr_engine import PlateReader
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # MODEL_PATH = os.path.join(BASE_DIR, "models", "best.pt")
-MODEL_PATH = os.path.join(BASE_DIR, "models", "license-plate-finetune-v1s.pt")
+MODEL_PATH = os.path.join(BASE_DIR, "models", "license-plate-finetune-v1m.pt")
 DB_PATH = os.path.join(BASE_DIR, "database", "toll_data.db")
 
 app = FastAPI(title="ALPR Toll API", version="1.0.0")
@@ -64,6 +64,7 @@ async def process_image(file: UploadFile = File(...)):
             "status": "Error",
             "message": "Invalid image file",
             "updated_balance": None,
+            "bbox": None,
         }
 
     detections = detector.detect(image)
@@ -73,16 +74,20 @@ async def process_image(file: UploadFile = File(...)):
             "status": "Error",
             "message": "No plate detected",
             "updated_balance": None,
+            "bbox": None,
         }
 
     plate_text = ""
+    selected_bbox = None
     for detection in detections:
         crop = detection.get("crop")
+        coords = detection.get("coords")
         if crop is None or crop.size == 0:
             continue
 
         plate_text = plate_reader.read_text(crop)
         if plate_text:
+            selected_bbox = coords
             break
 
     if not plate_text:
@@ -91,6 +96,7 @@ async def process_image(file: UploadFile = File(...)):
             "status": "Error",
             "message": "Plate detected but text extraction failed",
             "updated_balance": None,
+            "bbox": None,
         }
 
     transaction = db.process_toll(plate_text)
@@ -100,5 +106,6 @@ async def process_image(file: UploadFile = File(...)):
         "status": transaction.get("status", "Error"),
         "message": transaction.get("message") or transaction.get("msg", "Unknown"),
         "updated_balance": transaction.get("updated_balance"),
+        "bbox": selected_bbox,
         "user": user,
     }
