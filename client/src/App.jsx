@@ -16,12 +16,14 @@ function App() {
   const [users, setUsers] = useState([])
   const [selectedPlate, setSelectedPlate] = useState('')
   const [selectedUser, setSelectedUser] = useState(null)
+  const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 })
 
   const detectedPlate = result?.plate_text || ''
 
   useEffect(() => {
     if (!file) {
       setPreviewUrl('')
+      setPreviewSize({ width: 0, height: 0 })
       return
     }
 
@@ -70,6 +72,24 @@ function App() {
     }
     return users.filter((user) => user.plate_number.includes(query))
   }, [users, selectedPlate])
+
+  const previewBboxStyle = useMemo(() => {
+    const bbox = result?.bbox
+    if (!bbox || bbox.length !== 4 || !previewSize.width || !previewSize.height) {
+      return null
+    }
+
+    const [x1, y1, x2, y2] = bbox
+    const boxWidth = Math.max(0, x2 - x1)
+    const boxHeight = Math.max(0, y2 - y1)
+
+    return {
+      left: `${(x1 / previewSize.width) * 100}%`,
+      top: `${(y1 / previewSize.height) * 100}%`,
+      width: `${(boxWidth / previewSize.width) * 100}%`,
+      height: `${(boxHeight / previewSize.height) * 100}%`,
+    }
+  }, [result, previewSize])
 
   async function fetchUsers() {
     setUsersLoading(true)
@@ -250,11 +270,26 @@ function App() {
                 </div>
                 <div className="flex min-h-72 items-center justify-center bg-slate-950/50 p-4">
                   {previewUrl ? (
-                    <img
-                      src={previewUrl}
-                      alt="Uploaded vehicle"
-                      className="max-h-[26rem] w-full rounded-lg object-contain"
-                    />
+                    <div className="relative inline-block max-w-full">
+                      <img
+                        src={previewUrl}
+                        alt="Uploaded vehicle"
+                        onLoad={(event) => {
+                          setPreviewSize({
+                            width: event.currentTarget.naturalWidth,
+                            height: event.currentTarget.naturalHeight,
+                          })
+                        }}
+                        className="max-h-[26rem] max-w-full rounded-lg object-contain"
+                      />
+
+                      {previewBboxStyle ? (
+                        <div
+                          style={previewBboxStyle}
+                          className="pointer-events-none absolute border-[3px] border-emerald-400 shadow-[0_0_0_1px_rgba(16,185,129,0.4)]"
+                        />
+                      ) : null}
+                    </div>
                   ) : (
                     <p className="text-sm text-slate-500">Upload an image to preview it here.</p>
                   )}

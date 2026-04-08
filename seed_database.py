@@ -11,25 +11,18 @@ from src.ocr_engine import PlateReader
 
 
 def resolve_images_dir(script_dir):
-    """Resolve the images directory with a few sensible fallbacks."""
-    candidates = [
-        os.path.join(script_dir, "data", "images"),
-        os.path.join(script_dir, "images"),
-        os.path.join(script_dir, "..", "images"),
-    ]
-
-    for path in candidates:
-        normalized = os.path.abspath(path)
-        if os.path.isdir(normalized):
-            return normalized
+    """Resolve images from data/images only."""
+    target = os.path.abspath(os.path.join(script_dir, "data", "images"))
+    if os.path.isdir(target):
+        return target
     return None
 
 
 def resolve_model_path(script_dir):
     """Resolve YOLO model path so detector can be initialized from project root."""
     candidates = [
-        os.path.join(script_dir, "models", "best.pt"),
-        os.path.join(script_dir, "..", "models", "best.pt"),
+        os.path.join(script_dir, "models", "license-plate-finetune-v1m.pt"),
+        os.path.join(script_dir, "..", "models", "license-plate-finetune-v1m.pt"),
     ]
 
     for path in candidates:
@@ -38,10 +31,10 @@ def resolve_model_path(script_dir):
             return normalized
 
     # Fall back to detector default behavior if model isn't found in known locations.
-    return "../models/best.pt"
+    return "../models/license-plate-finetune-v1m.pt"
 
 
-def collect_images(images_dir, limit=150):
+def collect_images(images_dir, limit=200):
     """Collect up to `limit` images from the given folder."""
     patterns = ["*.jpg", "*.jpeg", "*.png", "*.bmp", "*.webp"]
     image_paths = []
@@ -103,10 +96,10 @@ def seed_database():
 
     images_dir = resolve_images_dir(script_dir)
     if not images_dir:
-        print("No images folder found. Checked: data/images, images, and ../images")
+        print("No images folder found at: data/images")
         return
 
-    image_paths = collect_images(images_dir, limit=150)
+    image_paths = collect_images(images_dir, limit=200)
     total_images = len(image_paths)
 
     if total_images == 0:
