@@ -1,6 +1,32 @@
-myenv
-node_modules
-data
-/data/
+# Environments and dependencies
+myenv/
+venv/
+node_modules/
+client/node_modules/
+
+# Python cache files
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyd
+.Python
+env/
+.env
+
+# Data and database
+data/
 data.zip
-__pycache__
+database/*.db
+
+# Build outputs
+client/dist/
+build/
+dist/
+
+# IDEs and Tools
+.vscode/
+.idea/
+.DS_Store
+
+# Note: models directory is not ignored as requested
+!models/
